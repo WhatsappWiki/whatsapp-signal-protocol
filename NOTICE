@@ -1,4 +1,4 @@
-signal-protocol-whatsapp
+whatsapp-signal-protocol
 
 Python port of libsignal-protocol-java, copyright 2013-2019 Open Whisper Systems.
 The protocol source, protobuf schemas, and translated tests are derived from:

@@ -1,4 +1,4 @@
-# Signal Protocol for Python · Signal 协议 Python 实现
+# whatsapp-signal-protocol · Signal 协议 Python 实现
 
 <a id="contact"></a>
 
@@ -20,7 +20,7 @@
 
 ### 从这里开始
 
-需要 Python 3.9 或更高版本。在项目目录执行：
+需要 Python 3.9 或更高版本。项目名称为 `whatsapp-signal-protocol`，Python 导入名为 `signal_protocol`。进入项目目录后执行：
 
 ```sh
 python3 -m venv .venv
@@ -145,7 +145,7 @@ Install and build with `pyproject.toml`, then use Python APIs without a JVM, Jav
 
 ### Start here
 
-Requires Python 3.9 or later. From the project directory:
+Requires Python 3.9 or later. The project name is `whatsapp-signal-protocol`; its Python import name is `signal_protocol`. From the project directory:
 
 ```sh
 python3 -m venv .venv
