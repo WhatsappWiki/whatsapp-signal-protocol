@@ -1,0 +1,3 @@
+include NOTICE
+recursive-include tests *.py *.json
+recursive-include examples *.py

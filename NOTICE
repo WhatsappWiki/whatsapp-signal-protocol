@@ -1,0 +1,27 @@
+signal-protocol-whatsapp
+
+Python port of libsignal-protocol-java, copyright 2013-2019 Open Whisper Systems.
+The protocol source, protobuf schemas, and translated tests are derived from:
+https://github.com/signalapp/libsignal-protocol-java
+Local upstream commit: fde96d22004f32a391554e4991e4e1f0a14c2d50
+
+Curve25519 signature and generalized XVEdDSA algorithm reference:
+https://github.com/signalapp/curve25519-java
+Copyright 2014-2016 Open Whisper Systems and the authors attributed in that project.
+Reference commit: 70fae57d6dccff7e78a46203c534314b07dfdd98 (0.5.0)
+
+This port is licensed under GPL version 3; see LICENSE.
+Generated protobuf files are generated from the supplied upstream schemas.
+Native Java/C reference source is downloaded for tests only, retains its original
+notices, and is not included in the Python runtime distribution.
+
+PyNaCl/libsodium, cryptography, and protobuf retain their respective licenses.
+
+ML-KEM primitive dependencies:
+pqcrypto 0.4.0 / PQClean C bindings, Apache-2.0.
+https://github.com/backbone-hq/pqcrypto
+Copyright 2025-present Backbone Technologies Ltd and attributed PQClean authors.
+kyber-py 1.2.0 reference implementation, MIT OR Apache-2.0 package metadata;
+its bundled LICENSE is MIT, Copyright (c) 2025 Giacomo Pope.
+https://github.com/GiacomoPope/kyber-py
+These separately installed dependencies retain their own notices and licenses.
