@@ -105,7 +105,7 @@ python -m build
 ### 项目结构
 
 ```text
-signal-protocol-whatsapp/
+whatsapp-signal-protocol/
 ├── README.md
 ├── pyproject.toml
 ├── src/signal_protocol/    # 协议实现与 protobuf schema
@@ -230,7 +230,7 @@ Optional `tests/interop` checks require additional Java reference sources and lo
 ### Project structure
 
 ```text
-signal-protocol-whatsapp/
+whatsapp-signal-protocol/
 ├── README.md
 ├── pyproject.toml
 ├── src/signal_protocol/    # Protocol implementation and protobuf schemas

@@ -13,8 +13,8 @@ dependencies = ["cryptography>=43", "PyNaCl>=1.5", "protobuf>=6.33.5,<7", "kyber
 keywords = ["signal-protocol", "whatsapp", "end-to-end-encryption", "double-ratchet", "ml-kem", "post-quantum-cryptography"]
 
 [project.urls]
-Source = "https://github.com/WhatsappWiki/signal-protocol-whatsapp"
-Issues = "https://github.com/WhatsappWiki/signal-protocol-whatsapp/issues"
+Source = "https://github.com/WhatsappWiki/whatsapp-signal-protocol"
+Issues = "https://github.com/WhatsappWiki/whatsapp-signal-protocol/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "build>=1", "ruff>=0.9", "grpcio-tools>=1.78,<1.81"]
