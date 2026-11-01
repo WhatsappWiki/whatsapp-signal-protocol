@@ -7,8 +7,10 @@ padding is separate from the AES-CBC PKCS7 padding applied by the cipher.
 import secrets
 from typing import Callable, Optional
 
-from .ecc import Curve, ECPublicKey, _public_edwards_multiply, montgomery_to_edwards
-from .exceptions import InvalidKeyException, InvalidMessageException
+from signal_protocol.ecc import Curve, ECPublicKey, _public_edwards_multiply, montgomery_to_edwards
+from signal_protocol.exceptions import InvalidKeyException, InvalidMessageException
+
+__all__ = ["pad_message", "unpad_message", "validate_public_key", "decode_identity_key"]
 
 _PRIME = 2**255 - 19
 _NEUTRAL = b"\x01" + bytes(31)

@@ -12,8 +12,10 @@ from hmac import compare_digest
 from nacl import bindings as s
 from nacl.exceptions import CryptoError
 
-from .ecc import _public_edwards_multiply, montgomery_to_edwards
-from .exceptions import InvalidKeyException, VrfSignatureVerificationFailedException
+from signal_protocol.ecc import _public_edwards_multiply, montgomery_to_edwards
+from signal_protocol.exceptions import InvalidKeyException, VrfSignatureVerificationFailedException
+
+__all__ = ["P", "L", "B", "IDENTITY", "PROTOCOL", "sign", "verify"]
 
 P = 2**255 - 19
 L = 2**252 + 27742317777372353535851937790883648493

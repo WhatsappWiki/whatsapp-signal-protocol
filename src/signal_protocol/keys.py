@@ -4,10 +4,20 @@ import secrets
 import time
 from dataclasses import dataclass
 
-from .ecc import Curve, ECKeyPair, ECPrivateKey, ECPublicKey
-from .profiles import UPSTREAM, ProtocolProfile
-from .protobuf import LocalStorageProtocol_pb2 as storage
-from .protobuf_codec import parse_java_protobuf
+from signal_protocol.ecc import Curve, ECKeyPair, ECPrivateKey, ECPublicKey
+from signal_protocol.profiles import UPSTREAM, ProtocolProfile
+from signal_protocol.protobuf import LocalStorageProtocol_pb2 as storage
+from signal_protocol.protobuf_codec import parse_java_protobuf
+
+__all__ = [
+    "IdentityKey",
+    "IdentityKeyPair",
+    "PreKeyRecord",
+    "SignedPreKeyRecord",
+    "PreKeyBundle",
+    "KyberPreKeyRecord",
+    "KeyHelper",
+]
 
 
 def _decode_record(proto, serialized, profile):
@@ -25,7 +35,7 @@ class IdentityKey:
     @classmethod
     def from_bytes(cls, serialized, offset=0, *, strict=False):
         if strict:
-            from .whatsapp import decode_identity_key
+            from signal_protocol.whatsapp import decode_identity_key
 
             return cls(decode_identity_key(serialized, offset=offset, strict=True))
         return cls(Curve.decode_point(serialized, offset))
@@ -154,7 +164,7 @@ class KyberPreKeyRecord:
 
     @property
     def key_pair(self):
-        from .kem import KemKeyPair, KemPublicKey, KemSecretKey
+        from signal_protocol.kem import KemKeyPair, KemPublicKey, KemSecretKey
 
         return KemKeyPair(
             KemPublicKey.from_bytes(self.structure.publicKey),
@@ -210,7 +220,7 @@ class KeyHelper:
 
     @staticmethod
     def generate_kyber_pre_key(identity, id, *, last_resort=False, seed=None, key_type=None):
-        from .kem import KemKeyPair, KemKeyType
+        from signal_protocol.kem import KemKeyPair, KemKeyType
 
         pair = KemKeyPair.generate(
             key_type=KemKeyType.ML_KEM_1024 if key_type is None else key_type, seed=seed

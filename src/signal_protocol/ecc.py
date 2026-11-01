@@ -13,8 +13,10 @@ from hmac import compare_digest
 from nacl import bindings as sodium
 from nacl.exceptions import CryptoError
 
-from .exceptions import InvalidKeyException
-from .profiles import UPSTREAM, ProtocolProfile
+from signal_protocol.exceptions import InvalidKeyException
+from signal_protocol.profiles import UPSTREAM, ProtocolProfile
+
+__all__ = ["ECPublicKey", "ECPrivateKey", "ECKeyPair", "clamp", "montgomery_to_edwards", "Curve"]
 
 
 @dataclass(frozen=True)
@@ -247,12 +249,12 @@ class Curve:
 
     @staticmethod
     def calculate_vrf_signature(private, message, *, random=None):
-        from .vrf import sign
+        from signal_protocol.vrf import sign
 
         return sign(private, message, random=random)
 
     @staticmethod
     def verify_vrf_signature(public, message, signature):
-        from .vrf import verify
+        from signal_protocol.vrf import verify
 
         return verify(public, message, signature)

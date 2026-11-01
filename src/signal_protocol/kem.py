@@ -18,7 +18,19 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Callable, Optional
 
-from .exceptions import InvalidKeyException
+from signal_protocol.exceptions import InvalidKeyException
+
+__all__ = [
+    "PUBLIC_KEY_LENGTH",
+    "SECRET_KEY_LENGTH",
+    "CIPHERTEXT_LENGTH",
+    "SHARED_SECRET_LENGTH",
+    "KemKeyType",
+    "KemEncapsulated",
+    "KemPublicKey",
+    "KemSecretKey",
+    "KemKeyPair",
+]
 
 # Unqualified lengths retain the original default-1024 API. Other parameter
 # sets expose their lengths on KemKeyType, and raw imports infer the set.

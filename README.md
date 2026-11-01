@@ -73,7 +73,7 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 ### 接入自己的工程
 
-协议逻辑与应用存储通过 [Store 契约](src/signal_protocol/store.py)连接。内存 Store 可直接用于测试；生产存储负责保存密钥、会话和 Sender Key 记录，加载时返回独立对象，并串行化同一会话的读改写。KEM Store 还需保留 `last_resort` 元数据。
+协议逻辑与应用存储通过 [Store 契约](src/signal_protocol/store_contracts.py)连接。内存 Store 可直接用于测试；生产存储负责保存密钥、会话和 Sender Key 记录，加载时返回独立对象，并串行化同一会话的读改写。KEM Store 还需保留 `last_resort` 元数据。
 
 消息和记录使用 `serialize()` / `from_bytes()`，接口采用 `snake_case`。解密回调在 session 保存前执行；认证失败不提交棘轮状态，一次性预密钥在成功接收并保存 session 后消费。外部 Store 的多个操作不自动组成数据库事务。
 
@@ -83,7 +83,7 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 | 验证 | 已保存结果 |
 | --- | --- |
-| Python 回归 | **700/700** |
+| Python 回归 | **720/720** |
 | 原 Java / Python 双向互通 | **20/20** |
 | WhatsApp 实际引擎受控对照 | **37/37 组** |
 | 原 Java 官方 JNI 后端 | **45/45** |
@@ -114,6 +114,28 @@ whatsapp-signal-protocol/
 ├── LICENSE
 └── NOTICE
 ```
+
+`src/signal_protocol/` 保持扁平布局，按职责划分：
+
+| 模块 | 职责 |
+| --- | --- |
+| `session.py`、`groups.py`、`store.py` | 保留既有导入路径，显式重新导出公开接口 |
+| `session_builder.py` | 验证 PreKey bundle，初始化发送与接收会话 |
+| `session_cipher.py` | 组合建链逻辑与调用方 Store，执行双棘轮和有序提交 |
+| `group_session.py` | Sender Key 分发与群组加解密流程 |
+| `state.py`、`sender_keys.py` | 单聊与群组状态、密钥派生及 protobuf 序列化 |
+| `address.py`、`store_contracts.py` | 地址、信任方向与独立的存储契约 |
+| `memory_store.py` | 通过序列化隔离读写对象的内存存储实现 |
+| `adapters.py`、`whatsapp.py` | WhatsApp 内容 padding、解码与公钥条件校验 |
+| `protocol.py`、`protobuf_codec.py`、`integers.py` | 消息封装、Java protobuf 解析语义与统一整数转换 |
+| `ecc.py`、`kem.py`、`kdf.py`、`keys.py`、`ratchet.py` | 密码学原语、密钥记录和棘轮派生 |
+| `fingerprint.py`、`devices.py`、`vrf.py` | 指纹、设备一致性与 VRF |
+
+依赖从适配器、会话流程指向状态和密码学模块；协议流程不导入具体内存 Store，也不通过兼容入口模块访问内部实现。调用方可继续使用 `from signal_protocol import SessionCipher`，以及 `signal_protocol.session`、`signal_protocol.groups`、`signal_protocol.store` 的既有接口。单独执行 `import signal_protocol` 后仍可访问 `signal_protocol.groups`；搬迁类保留原公开模块名，使原本可 pickle 的对象仍可由旧版读取。手写模块用 `__all__` 明确公开名字；生成的 protobuf 文件保持生成器输出。
+
+`SessionCipher` 组合 `SessionBuilder` 与注入的 Store。构造器仍可分别接收 `pre_key_store`、`signed_pre_key_store`、`identity_key_store`、`kyber_pre_key_store`；未提供时使用首个 `store`。现有适配器和组合内存 Store 的继承关系保留，以兼容调用方子类。两个协议流程各自复用唯一共享锁；解密、去 padding 和应用回调均在持久化之前完成。
+
+测试统一放在 `tests/`，新模块的导入兼容、独立 Store 注入和回调失败重试见 [test_module_api.py](tests/test_module_api.py)。新增存储后端应实现相应契约，并保持加载对象独立与失败时不提交会话或 Sender Key 状态的语义。
 
 ### 密钥与实现边界
 
@@ -198,7 +220,7 @@ All three sets use raw public keys, expanded secret keys, and ciphertexts. Impor
 
 ### Integrate with your application
 
-The [Store contracts](src/signal_protocol/store.py) connect protocol logic to application storage. Use the in-memory Store for tests. Production stores save keys, sessions, and Sender Key records, return independent objects on load, and serialize read-modify-write operations for each session. KEM stores must also retain `last_resort` metadata.
+The [Store contracts](src/signal_protocol/store_contracts.py) connect protocol logic to application storage. Use the in-memory Store for tests. Production stores save keys, sessions, and Sender Key records, return independent objects on load, and serialize read-modify-write operations for each session. KEM stores must also retain `last_resort` metadata.
 
 Messages and records expose `serialize()` / `from_bytes()` with `snake_case` APIs. Decryption callbacks run before the session is saved. Authentication failures do not commit ratchet state; one-time prekeys are consumed after successful reception and session storage. Multiple external Store operations do not automatically form a database transaction.
 
@@ -208,7 +230,7 @@ The library covers algorithms, message formats, key derivation, and protocol sta
 
 | Verification | Recorded result |
 | --- | --- |
-| Python regression suite | **700/700** |
+| Python regression suite | **720/720** |
 | Original Java / Python bidirectional interoperability | **20/20** |
 | Controlled comparisons with the actual WhatsApp engine | **37/37 groups** |
 | Original Java tests with the official JNI backend | **45/45** |
@@ -239,6 +261,28 @@ whatsapp-signal-protocol/
 ├── LICENSE
 └── NOTICE
 ```
+
+`src/signal_protocol/` keeps a flat layout with focused responsibilities:
+
+| Modules | Responsibility |
+| --- | --- |
+| `session.py`, `groups.py`, `store.py` | Preserve existing import paths through explicit public re-exports |
+| `session_builder.py` | Validate PreKey bundles and initialize outgoing/incoming sessions |
+| `session_cipher.py` | Compose session setup and caller-supplied stores for ratcheting and ordered commits |
+| `group_session.py` | Sender Key distribution and group encryption/decryption |
+| `state.py`, `sender_keys.py` | Direct/group state, key derivation and protobuf serialization |
+| `address.py`, `store_contracts.py` | Addresses, trust directions and independent storage contracts |
+| `memory_store.py` | Memory stores that isolate loaded and saved objects through serialization |
+| `adapters.py`, `whatsapp.py` | WhatsApp content padding, decoding and conditional public-key checks |
+| `protocol.py`, `protobuf_codec.py`, `integers.py` | Message envelopes, Java protobuf parsing semantics and shared integer conversion |
+| `ecc.py`, `kem.py`, `kdf.py`, `keys.py`, `ratchet.py` | Cryptographic primitives, key records and ratchet derivation |
+| `fingerprint.py`, `devices.py`, `vrf.py` | Fingerprints, device consistency and VRFs |
+
+Dependencies point from adapters and session workflows toward state and cryptographic modules. Protocol workflows do not import concrete memory stores or access implementations through compatibility entry modules. Existing imports such as `from signal_protocol import SessionCipher` and APIs in `signal_protocol.session`, `signal_protocol.groups` and `signal_protocol.store` remain available. A plain `import signal_protocol` still exposes `signal_protocol.groups`. Relocated classes retain their original public module names so previously picklable objects remain readable by older installations. Handwritten modules declare public names with `__all__`; generated protobuf files retain their generator output.
+
+`SessionCipher` composes a `SessionBuilder` with injected stores. Constructors still accept separate `pre_key_store`, `signed_pre_key_store`, `identity_key_store` and `kyber_pre_key_store` arguments, defaulting to the initial `store` when omitted. Existing adapter and aggregate memory-store inheritance is retained for compatibility with caller subclasses. Direct and group workflows each reuse a single shared lock; decryption, unpadding and application callbacks all complete before persistence.
+
+Tests live consistently under `tests/`. See [test_module_api.py](tests/test_module_api.py) for import compatibility, separate store injection and retries after callback failures. New storage backends should implement the relevant contracts while preserving independent loaded objects and avoiding session or Sender Key state commits on failure.
 
 ### Keys and implementation boundaries
 

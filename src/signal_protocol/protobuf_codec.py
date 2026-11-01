@@ -5,15 +5,12 @@ CodedInputStream's ten-byte cap. Neither changes the original envelope retained
 for MAC/signature verification. Both Java-compatible profiles use these routes.
 """
 
-import operator
-
 from google.protobuf.descriptor import FieldDescriptor as F
 from google.protobuf.message import DecodeError
 
+from signal_protocol.integers import uint32
 
-def uint32(value):
-    """The unsigned view of Java int bits, including negative constructor inputs."""
-    return operator.index(value) & 0xFFFFFFFF
+__all__ = ["uint32", "normalize_java_protobuf", "parse_java_protobuf"]
 
 
 def _varint(data, position, end, bits, max_bytes=None):
@@ -47,7 +44,6 @@ def _encode(value):
 
 
 _VARINT32 = {F.TYPE_INT32, F.TYPE_UINT32, F.TYPE_SINT32, F.TYPE_ENUM}
-_VARINT64 = {F.TYPE_INT64, F.TYPE_UINT64, F.TYPE_SINT64, F.TYPE_BOOL}
 
 
 def normalize_java_protobuf(data, descriptor, *, recursion_limit=100, route="array"):

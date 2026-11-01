@@ -1,5 +1,21 @@
 """Protocol failures, kept distinct so applications can handle retries safely."""
 
+__all__ = [
+    "InvalidKeyException",
+    "InvalidKeyIdException",
+    "InvalidMessageException",
+    "InvalidVersionException",
+    "LegacyMessageException",
+    "DuplicateMessageException",
+    "NoSessionException",
+    "UntrustedIdentityException",
+    "InvalidMacException",
+    "VrfSignatureVerificationFailedException",
+    "FingerprintParsingException",
+    "FingerprintVersionMismatchException",
+    "FingerprintIdentifierMismatchException",
+]
+
 
 class InvalidKeyException(ValueError):
     pass

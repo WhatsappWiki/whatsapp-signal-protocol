@@ -5,14 +5,21 @@ from hashlib import sha512
 
 from google.protobuf.message import DecodeError
 
-from .ecc import Curve
-from .exceptions import (
+from signal_protocol.ecc import Curve
+from signal_protocol.exceptions import (
     InvalidKeyException,
     InvalidMessageException,
     VrfSignatureVerificationFailedException,
 )
-from .integers import uint32
-from .protobuf import WhisperTextProtocol_pb2 as pb
+from signal_protocol.integers import uint32
+from signal_protocol.protobuf import WhisperTextProtocol_pb2 as pb
+
+__all__ = [
+    "DeviceConsistencyCommitment",
+    "DeviceConsistencySignature",
+    "DeviceConsistencyMessage",
+    "DeviceConsistencyCodeGenerator",
+]
 
 
 class DeviceConsistencyCommitment:

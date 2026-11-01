@@ -2,6 +2,8 @@
 
 from enum import Enum
 
+__all__ = ["ProtocolProfile", "UPSTREAM", "WHATSAPP"]
+
 
 class ProtocolProfile(Enum):
     UPSTREAM = "upstream"

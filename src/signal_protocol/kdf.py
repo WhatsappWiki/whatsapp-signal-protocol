@@ -6,7 +6,9 @@ import hmac
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from .exceptions import InvalidMessageException
+from signal_protocol.exceptions import InvalidMessageException
+
+__all__ = ["mac", "HKDF", "crypt_ctr", "HKDFv2", "HKDFv3", "encrypt_cbc", "decrypt_cbc"]
 
 
 def mac(key: bytes, data: bytes) -> bytes:

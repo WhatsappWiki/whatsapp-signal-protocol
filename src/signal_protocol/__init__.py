@@ -1,9 +1,15 @@
 """Python implementation of the supplied libsignal-protocol-java protocol."""
 
-from .adapters import WhatsAppGroupCipher, WhatsAppSessionBuilder, WhatsAppSessionCipher
-from .ecc import Curve, ECKeyPair, ECPrivateKey, ECPublicKey
-from .kem import KemEncapsulated, KemKeyPair, KemKeyType, KemPublicKey, KemSecretKey
-from .keys import (
+# Keep the historically available package namespace without adding wildcard exports.
+from signal_protocol import groups as groups
+from signal_protocol.adapters import (
+    WhatsAppGroupCipher,
+    WhatsAppSessionBuilder,
+    WhatsAppSessionCipher,
+)
+from signal_protocol.ecc import Curve, ECKeyPair, ECPrivateKey, ECPublicKey
+from signal_protocol.kem import KemEncapsulated, KemKeyPair, KemKeyType, KemPublicKey, KemSecretKey
+from signal_protocol.keys import (
     IdentityKey,
     IdentityKeyPair,
     KeyHelper,
@@ -12,11 +18,11 @@ from .keys import (
     PreKeyRecord,
     SignedPreKeyRecord,
 )
-from .profiles import UPSTREAM, WHATSAPP, ProtocolProfile
-from .protocol import CiphertextMessage, PreKeySignalMessage, SignalMessage
-from .session import SessionBuilder, SessionCipher
-from .state import SessionRecord, SessionState
-from .store import InMemorySignalProtocolStore, SignalProtocolAddress
+from signal_protocol.profiles import UPSTREAM, WHATSAPP, ProtocolProfile
+from signal_protocol.protocol import CiphertextMessage, PreKeySignalMessage, SignalMessage
+from signal_protocol.session import SessionBuilder, SessionCipher
+from signal_protocol.state import SessionRecord, SessionState
+from signal_protocol.store import InMemorySignalProtocolStore, SignalProtocolAddress
 
 __all__ = [
     "Curve",
