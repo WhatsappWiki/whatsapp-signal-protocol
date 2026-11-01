@@ -10,6 +10,7 @@ from signal_protocol import (
     WHATSAPP,
     Curve,
     InMemorySignalProtocolStore,
+    KeyHelper,
     SessionCipher,
     SessionRecord,
     SessionState,
@@ -24,6 +25,8 @@ from signal_protocol.groups import (
     SenderChainKey,
     SenderKeyName,
     SenderKeyRecord,
+    SenderKeyState,
+    SenderMessageKey,
 )
 from signal_protocol.integers import int32, uint32
 from signal_protocol.kdf import HKDF
@@ -222,3 +225,66 @@ def test_session_encrypt_at_uint32_max_wraps_saved_state():
     encoded = SessionCipher(store, ADDRESS, profile=WHATSAPP).encrypt(b"last counter")
     assert encoded.counter == 0xFFFFFFFF
     assert store.load_session(ADDRESS).session_state.sender_chain_key.index == 0
+
+
+JAVA_INT_VALUES = [-1, -0x80000000, 0, 0x7FFFFFFF, 0xFFFFFFFF, 0x100000007]
+
+
+@pytest.mark.parametrize("value", JAVA_INT_VALUES)
+def test_session_skipped_key_lookup_uses_the_same_int_bits_as_storage(value):
+    public = Curve.generate_key_pair().public_key
+    state = SessionState()
+    chain = ChainKey(HKDF(3), bytes(range(32)), value)
+    state.add_receiver_chain(public, chain)
+    expected = chain.message_keys()
+    state.set_message_keys(public, expected)
+    state = SessionState(state.serialize())
+
+    assert state.has_message_keys(public, value)
+    assert state.has_message_keys(public, uint32(value))
+    assert state.remove_message_keys(public, value) == expected
+    assert not state.has_message_keys(public, uint32(value))
+    assert state.remove_message_keys(public, value) is None
+
+
+@pytest.mark.parametrize("value", JAVA_INT_VALUES)
+def test_group_skipped_key_lookup_uses_the_same_int_bits_as_storage(value):
+    state = SenderKeyState(7, 0, bytes(32), Curve.generate_key_pair())
+    expected = SenderMessageKey(value, bytes(range(32)))
+    state.add_sender_message_key(expected)
+
+    assert state.has_sender_message_key(value)
+    assert state.has_sender_message_key(uint32(value))
+    result = state.remove_sender_message_key(value)
+    assert (result.iteration, result.seed, result.iv, result.cipher_key) == (
+        expected.iteration,
+        expected.seed,
+        expected.iv,
+        expected.cipher_key,
+    )
+    assert not state.has_sender_message_key(uint32(value))
+    assert state.remove_sender_message_key(value) is None
+
+
+@pytest.mark.parametrize("value", JAVA_INT_VALUES)
+def test_group_state_lookup_accepts_signed_and_unsigned_key_ids(value):
+    record = SenderKeyRecord()
+    record.set_sender_key_state(value, 0, bytes(32), Curve.generate_key_pair())
+    record = SenderKeyRecord(record.serialize())
+
+    assert record.get_sender_key_state(value) is record.get_sender_key_state(uint32(value))
+    assert record.get_sender_key_state().key_id == uint32(value)
+
+
+@pytest.mark.parametrize("value", JAVA_INT_VALUES)
+def test_pending_key_exchange_sequence_preserves_java_int_bits(value):
+    base, ratchet = Curve.generate_key_pair(), Curve.generate_key_pair()
+    identity = KeyHelper.generate_identity_key_pair()
+    state = SessionState()
+    state.set_pending_key_exchange(value, base, ratchet, identity)
+    state = SessionState(state.serialize())
+
+    assert state.pending_key_exchange_sequence == uint32(value)
+    assert state.pending_key_exchange_base_key == base
+    assert state.pending_key_exchange_ratchet_key == ratchet
+    assert state.pending_key_exchange_identity_key == identity

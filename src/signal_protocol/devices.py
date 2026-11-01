@@ -13,6 +13,7 @@ from signal_protocol.exceptions import (
 )
 from signal_protocol.integers import uint32
 from signal_protocol.protobuf import WhisperTextProtocol_pb2 as pb
+from signal_protocol.protobuf_codec import parse_java_protobuf
 
 __all__ = [
     "DeviceConsistencyCommitment",
@@ -58,7 +59,7 @@ class DeviceConsistencyMessage:
     @classmethod
     def from_bytes(cls, commitment, serialized, identity):
         try:
-            p = pb.DeviceConsistencyCodeMessage.FromString(serialized)
+            p = parse_java_protobuf(pb.DeviceConsistencyCodeMessage, serialized)
             output = Curve.verify_vrf_signature(
                 identity.public_key, commitment.serialize(), p.signature
             )

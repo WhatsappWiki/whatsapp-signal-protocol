@@ -13,6 +13,7 @@ from signal_protocol.exceptions import (
 from signal_protocol.integers import uint32
 from signal_protocol.keys import IdentityKey
 from signal_protocol.protobuf import FingerprintProtocol_pb2 as pb
+from signal_protocol.protobuf_codec import parse_java_protobuf
 
 __all__ = [
     "digits",
@@ -52,7 +53,7 @@ class ScannableFingerprint:
 
     def compare_to(self, scanned):
         try:
-            p = pb.CombinedFingerprints.FromString(scanned)
+            p = parse_java_protobuf(pb.CombinedFingerprints, scanned)
         except DecodeError as exc:
             raise FingerprintParsingException(str(exc)) from exc
         if (

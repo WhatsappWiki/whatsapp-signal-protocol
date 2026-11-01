@@ -74,7 +74,7 @@ def _type(value):
 
 def _sized(value, length, label):
     try:
-        value = bytes(value)
+        value = memoryview(value).tobytes()
     except (TypeError, ValueError) as exc:
         raise InvalidKeyException(f"{label} must be bytes") from exc
     if len(value) != length:
@@ -86,7 +86,7 @@ def _infer_type(serialized, key_type, length_index, label):
     if key_type is not None:
         return _type(key_type)
     try:
-        length = len(bytes(serialized))
+        length = memoryview(serialized).nbytes
     except (TypeError, ValueError) as exc:
         raise InvalidKeyException(f"{label} must be bytes") from exc
     for candidate, values in _PARAMETERS.items():

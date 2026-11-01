@@ -80,7 +80,10 @@ def sign(private, message, *, random=None):
         raise InvalidKeyException("Values must not be null")
     if len(message) > 1048576:
         raise ValueError("VRF message exceeds 1 MiB")
-    random = secrets.token_bytes(32) if random is None else bytes(random)
+    try:
+        random = secrets.token_bytes(32) if random is None else memoryview(random).tobytes()
+    except (TypeError, ValueError) as exc:
+        raise InvalidKeyException("VRF randomness must be a bytes-like buffer") from exc
     if len(random) != 32:
         raise ValueError("VRF randomness must be 32 bytes")
     scalar = _reduce(private.key + bytes(32))

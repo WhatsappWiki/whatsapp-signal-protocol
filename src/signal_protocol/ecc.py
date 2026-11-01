@@ -24,7 +24,10 @@ class ECPublicKey:
     key: bytes
 
     def __post_init__(self):
-        object.__setattr__(self, "key", bytes(self.key))
+        try:
+            object.__setattr__(self, "key", memoryview(self.key).tobytes())
+        except (TypeError, ValueError) as exc:
+            raise InvalidKeyException("Public key must be a bytes-like buffer") from exc
         if len(self.key) != 32:
             raise InvalidKeyException("Public key must be 32 bytes")
 
@@ -44,7 +47,10 @@ class ECPrivateKey:
     key: bytes
 
     def __post_init__(self):
-        object.__setattr__(self, "key", bytes(self.key))
+        try:
+            object.__setattr__(self, "key", memoryview(self.key).tobytes())
+        except (TypeError, ValueError) as exc:
+            raise InvalidKeyException("Private key must be a bytes-like buffer") from exc
         if len(self.key) != 32:
             raise InvalidKeyException("Private key must be 32 bytes")
 
@@ -192,7 +198,10 @@ class Curve:
     ) -> bytes:
         if private is None or message is None:
             raise InvalidKeyException("Values must not be null")
-        random = secrets.token_bytes(64) if random is None else bytes(random)
+        try:
+            random = secrets.token_bytes(64) if random is None else memoryview(random).tobytes()
+        except (TypeError, ValueError) as exc:
+            raise InvalidKeyException("Signature randomness must be a bytes-like buffer") from exc
         if len(random) != 64:
             raise InvalidKeyException("Signature randomness must be 64 bytes")
         scalar = sodium.crypto_core_ed25519_scalar_reduce(private.key + bytes(32))

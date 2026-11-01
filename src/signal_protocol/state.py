@@ -172,10 +172,12 @@ class SessionState:
         )
 
     def has_message_keys(self, public, counter):
+        counter = uint32(counter)
         chain = self._receiver_chain(public)
         return chain is not None and any(k.index == counter for k in chain.messageKeys)
 
     def remove_message_keys(self, public, counter):
+        counter = uint32(counter)
         chain = self._receiver_chain(public)
         if chain is not None:
             for i, key in enumerate(chain.messageKeys):
@@ -196,7 +198,7 @@ class SessionState:
     def set_pending_key_exchange(self, sequence, base, ratchet, identity):
         self.structure.pendingKeyExchange.CopyFrom(
             pb.SessionStructure.PendingKeyExchange(
-                sequence=sequence,
+                sequence=uint32(sequence),
                 localBaseKey=base.public_key.serialize(),
                 localBaseKeyPrivate=base.private_key.serialize(),
                 localRatchetKey=ratchet.public_key.serialize(),

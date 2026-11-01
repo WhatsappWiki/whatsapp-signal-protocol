@@ -77,18 +77,22 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 消息和记录使用 `serialize()` / `from_bytes()`，接口采用 `snake_case`。解密回调在 session 保存前执行；认证失败不提交棘轮状态，一次性预密钥在成功接收并保存 session 后消费。外部 Store 的多个操作不自动组成数据库事务。
 
+密钥材料、显式种子和签名随机量使用 `bytes`、`bytearray` 或 `memoryview` 等字节缓冲区；整数和列表会被拒绝，避免将字节长度误作全零密钥或随机量。可变缓冲区在导入时复制。Java `int` ID 和计数器按相同的 32 位模式进行保存与查找。
+
 库的范围是算法、消息格式、密钥派生与协议状态。账号注册、连接传输、JID/设备管理和消息业务由上层应用组织。本项目为独立、非官方实现，与 WhatsApp 或 Meta 无官方隶属或背书关系。
 
 ### 用测试说话
 
 | 验证 | 已保存结果 |
 | --- | --- |
-| Python 回归 | **720/720** |
+| Python 回归 | **789/789** |
 | 原 Java / Python 双向互通 | **20/20** |
 | WhatsApp 实际引擎受控对照 | **37/37 组** |
 | 原 Java 官方 JNI 后端 | **45/45** |
 
 实际引擎验证覆盖三档 ML-KEM、双方发起、有/无 Curve 一次性预密钥、乱序棘轮、群组、padding、公钥与解析边界、计数器回绕和 Store 回调。输入是独立生成的合成密钥与内存会话。实际引擎调用已保存为[离线测试向量](tests/vectors)，普通 pytest 无需手机或 Frida。
+
+本地回归还覆盖共享 Store 的并发会话、跳过消息密钥的有符号计数器查找、二维码指纹与设备一致性消息的 Java Protobuf 解析边界，以及密钥和随机量输入校验。
 
 原桌面 Java 依赖 `curve25519-java:0.5.0` 的 VRF 方法未实现，原样基线为 **44/45**；该失败保留，官方 JNI 后端运行相同协议场景通过。JNI 测试在本机 JVM 执行，不是 Android instrumentation。Java 源测试按原循环、固定向量和异常断言移植；仅 provider 选择断言按 Python 后端适配。
 
@@ -224,18 +228,22 @@ The [Store contracts](src/signal_protocol/store_contracts.py) connect protocol l
 
 Messages and records expose `serialize()` / `from_bytes()` with `snake_case` APIs. Decryption callbacks run before the session is saved. Authentication failures do not commit ratchet state; one-time prekeys are consumed after successful reception and session storage. Multiple external Store operations do not automatically form a database transaction.
 
+Key material, explicit seeds, and signature randomness use byte buffers such as `bytes`, `bytearray`, or `memoryview`. Integers and lists are rejected to prevent treating a byte count as an all-zero key or randomness. Mutable buffers are copied on import. Java `int` IDs and counters use the same 32-bit representation for storage and lookup.
+
 The library covers algorithms, message formats, key derivation, and protocol state. Registration, transport, JID/device management, and message business logic belong to the application layer. This independent, unofficial implementation is not affiliated with or endorsed by WhatsApp or Meta.
 
 ### Verified beyond a local round trip
 
 | Verification | Recorded result |
 | --- | --- |
-| Python regression suite | **720/720** |
+| Python regression suite | **789/789** |
 | Original Java / Python bidirectional interoperability | **20/20** |
 | Controlled comparisons with the actual WhatsApp engine | **37/37 groups** |
 | Original Java tests with the official JNI backend | **45/45** |
 
 Engine checks cover all three ML-KEM sets, both initiators, optional Curve one-time prekeys, out-of-order ratchets, groups, padding, public-key and parser boundaries, counter wraparound, and Store callbacks. Inputs use independently generated synthetic keys and in-memory sessions. Recorded engine calls are retained as [offline test vectors](tests/vectors); ordinary pytest runs require neither a phone nor Frida.
+
+Local regressions also cover concurrent sessions sharing a Store, signed-counter lookups for skipped message keys, Java Protobuf parsing boundaries for QR fingerprints and device consistency messages, and validation of key and randomness inputs.
 
 The original desktop dependency, `curve25519-java:0.5.0`, leaves its VRF methods unimplemented, giving an unchanged **44/45** baseline. That failure is retained; the official JNI backend passes the same protocol scenarios. JNI tests execute on the host JVM, not through Android instrumentation. Java scenarios preserve their original loops, fixed vectors, and exception checks; provider-selection assertions are adapted to the Python backend.
 

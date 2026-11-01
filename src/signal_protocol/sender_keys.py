@@ -106,6 +106,7 @@ class SenderKeyState:
         return ECPrivateKey(getattr(self.structure.senderSigningKey, "private"))
 
     def has_sender_message_key(self, iteration):
+        iteration = uint32(iteration)
         return any(k.iteration == iteration for k in self.structure.senderMessageKeys)
 
     def add_sender_message_key(self, key):
@@ -114,6 +115,7 @@ class SenderKeyState:
             del self.structure.senderMessageKeys[0]
 
     def remove_sender_message_key(self, iteration):
+        iteration = uint32(iteration)
         for i, key in enumerate(self.structure.senderMessageKeys):
             if key.iteration == iteration:
                 result = SenderMessageKey(key.iteration, key.seed)
@@ -138,6 +140,7 @@ class SenderKeyRecord:
         return not self.states
 
     def get_sender_key_state(self, key_id=None):
+        key_id = uint32(key_id) if key_id is not None else None
         for state in self.states:
             if key_id is None or state.key_id == key_id:
                 return state
