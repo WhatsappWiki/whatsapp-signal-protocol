@@ -205,11 +205,20 @@ class Curve:
         if len(random) != 64:
             raise InvalidKeyException("Signature randomness must be 64 bytes")
         scalar = sodium.crypto_core_ed25519_scalar_reduce(private.key + bytes(32))
-        public = sodium.crypto_scalarmult_ed25519_base_noclamp(scalar)
+        # libsodium rejects identity-point products; the original signer
+        # supports them for raw imported scalars and a zero reduced nonce.
+        neutral = b"\x01" + bytes(31)
+        public = (
+            neutral
+            if scalar == bytes(32)
+            else sodium.crypto_scalarmult_ed25519_base_noclamp(scalar)
+        )
         nonce = sodium.crypto_core_ed25519_scalar_reduce(
             sha512(b"\xfe" + b"\xff" * 31 + private.key + message + random).digest()
         )
-        r_point = sodium.crypto_scalarmult_ed25519_base_noclamp(nonce)
+        r_point = (
+            neutral if nonce == bytes(32) else sodium.crypto_scalarmult_ed25519_base_noclamp(nonce)
+        )
         challenge = sodium.crypto_core_ed25519_scalar_reduce(
             sha512(r_point + public + message).digest()
         )

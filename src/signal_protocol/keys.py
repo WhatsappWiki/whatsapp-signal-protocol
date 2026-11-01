@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 
 from signal_protocol.ecc import Curve, ECKeyPair, ECPrivateKey, ECPublicKey
+from signal_protocol.integers import int32
 from signal_protocol.profiles import UPSTREAM, ProtocolProfile
 from signal_protocol.protobuf import LocalStorageProtocol_pb2 as storage
 from signal_protocol.protobuf_codec import parse_java_protobuf
@@ -208,7 +209,7 @@ class KeyHelper:
             return value % 0xFFFFFE if value >= 0 else -((-value) % 0xFFFFFE)
 
         return [
-            PreKeyRecord(remainder(start - 1 + i) + 1, Curve.generate_key_pair())
+            PreKeyRecord(remainder(int32(start - 1 + i)) + 1, Curve.generate_key_pair())
             for i in range(count)
         ]
 

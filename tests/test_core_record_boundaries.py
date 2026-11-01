@@ -18,6 +18,25 @@ from signal_protocol.fingerprint import ScannableFingerprint
 from signal_protocol.groups import SenderKeyRecord
 
 
+@pytest.mark.parametrize(
+    "start,expected",
+    [
+        (-2147483648, [256, 4294967041, 4294967042, 4294967043]),
+        (-2147483647, [4294967041, 4294967042, 4294967043, 4294967044]),
+        (-1, [4294967295, 0, 1, 2]),
+        (0, [0, 1, 2, 3]),
+        (16777214, [16777214, 1, 2, 3]),
+        (2147483646, [254, 255, 256, 4294967041]),
+        (2147483647, [255, 256, 4294967041, 4294967042]),
+    ],
+)
+def test_prekey_batch_ids_match_original_java_int_overflow(start, expected):
+    # Captured from the original KeyHelper.generatePreKeys(start, 4).
+    records = KeyHelper.generate_pre_keys(start, len(expected))
+    assert [record.id for record in records] == expected
+    assert [PreKeyRecord.from_bytes(record.serialize()).id for record in records] == expected
+
+
 @pytest.mark.parametrize("cls", [PreKeyRecord, SignedPreKeyRecord, KyberPreKeyRecord])
 def test_overlong_record_id_decodes_with_java_profile(cls):
     # Low32 is all ones; trailing groups only consume bytes for Java uint32.

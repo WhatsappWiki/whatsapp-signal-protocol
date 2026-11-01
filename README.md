@@ -71,6 +71,8 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 三档采用 raw 公钥、展开私钥与密文编码，导入时可由长度识别参数。v4 KDF 均保留 `WhisperText_X25519_SHA-256_CRYSTALS-KYBER-1024` 标签；实际原语是 ML-KEM，不能按历史标签替换成旧 Kyber Round 3。
 
+两种后端在封装前统一检查公钥系数范围，在解封装前检查私钥内嵌公钥的摘要与系数，非法密钥抛出 `InvalidKeyException`。类型、长度、封装公钥系数和解封装密钥摘要检查依据 [FIPS 203 §7.2–7.3](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf)；内嵌公钥系数检查与参考后端一致。完整长度的损坏密文仍采用 ML-KEM 隐式拒绝，返回派生秘密，随后由 Signal MAC 验证。
+
 ### 接入自己的工程
 
 协议逻辑与应用存储通过 [Store 契约](src/signal_protocol/store_contracts.py)连接。内存 Store 可直接用于测试；生产存储负责保存密钥、会话和 Sender Key 记录，加载时返回独立对象，并串行化同一会话的读改写。KEM Store 还需保留 `last_resort` 元数据。
@@ -85,7 +87,7 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 | 验证 | 已保存结果 |
 | --- | --- |
-| Python 回归 | **789/789** |
+| Python 回归 | **874/874** |
 | 原 Java / Python 双向互通 | **20/20** |
 | WhatsApp 实际引擎受控对照 | **37/37 组** |
 | 原 Java 官方 JNI 后端 | **45/45** |
@@ -93,6 +95,8 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 实际引擎验证覆盖三档 ML-KEM、双方发起、有/无 Curve 一次性预密钥、乱序棘轮、群组、padding、公钥与解析边界、计数器回绕和 Store 回调。输入是独立生成的合成密钥与内存会话。实际引擎调用已保存为[离线测试向量](tests/vectors)，普通 pytest 无需手机或 Frida。
 
 本地回归还覆盖共享 Store 的并发会话、跳过消息密钥的有符号计数器查找、二维码指纹与设备一致性消息的 Java Protobuf 解析边界，以及密钥和随机量输入校验。
+
+异常路径检查覆盖三档 ML-KEM 非法密钥的后端一致性、失败后会话与预密钥保留及修复后重试；整数和签名边界覆盖批量 PreKey ID 的 Java 溢出语义、原始导入标量与零 nonce。
 
 原桌面 Java 依赖 `curve25519-java:0.5.0` 的 VRF 方法未实现，原样基线为 **44/45**；该失败保留，官方 JNI 后端运行相同协议场景通过。JNI 测试在本机 JVM 执行，不是 Android instrumentation。Java 源测试按原循环、固定向量和异常断言移植；仅 provider 选择断言按 Python 后端适配。
 
@@ -222,6 +226,8 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 All three sets use raw public keys, expanded secret keys, and ciphertexts. Imports can infer the parameter set from length. Their v4 KDF retains `WhisperText_X25519_SHA-256_CRYSTALS-KYBER-1024`; the primitive is ML-KEM, so the historical label must not be used to substitute legacy round-3 Kyber.
 
+Both backends check public-key coefficient ranges before encapsulation and the embedded public-key hash and coefficients before decapsulation, raising `InvalidKeyException` for invalid keys. Type, length, encapsulation-key coefficient, and decapsulation-key hash checks follow [FIPS 203 §7.2–7.3](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf); embedded public-key coefficient checks match the reference backend. Corrupted ciphertexts of the correct length still use ML-KEM implicit rejection, returning a derived secret that is subsequently checked by the Signal MAC.
+
 ### Integrate with your application
 
 The [Store contracts](src/signal_protocol/store_contracts.py) connect protocol logic to application storage. Use the in-memory Store for tests. Production stores save keys, sessions, and Sender Key records, return independent objects on load, and serialize read-modify-write operations for each session. KEM stores must also retain `last_resort` metadata.
@@ -236,7 +242,7 @@ The library covers algorithms, message formats, key derivation, and protocol sta
 
 | Verification | Recorded result |
 | --- | --- |
-| Python regression suite | **789/789** |
+| Python regression suite | **874/874** |
 | Original Java / Python bidirectional interoperability | **20/20** |
 | Controlled comparisons with the actual WhatsApp engine | **37/37 groups** |
 | Original Java tests with the official JNI backend | **45/45** |
@@ -244,6 +250,8 @@ The library covers algorithms, message formats, key derivation, and protocol sta
 Engine checks cover all three ML-KEM sets, both initiators, optional Curve one-time prekeys, out-of-order ratchets, groups, padding, public-key and parser boundaries, counter wraparound, and Store callbacks. Inputs use independently generated synthetic keys and in-memory sessions. Recorded engine calls are retained as [offline test vectors](tests/vectors); ordinary pytest runs require neither a phone nor Frida.
 
 Local regressions also cover concurrent sessions sharing a Store, signed-counter lookups for skipped message keys, Java Protobuf parsing boundaries for QR fingerprints and device consistency messages, and validation of key and randomness inputs.
+
+Failure-path checks cover consistent rejection of invalid keys across both backends and all three ML-KEM sets, preservation of sessions and prekeys on failure, and retries after key repair. Integer and signature boundaries cover Java overflow in batch PreKey IDs, raw imported scalars, and zero nonces.
 
 The original desktop dependency, `curve25519-java:0.5.0`, leaves its VRF methods unimplemented, giving an unchanged **44/45** baseline. That failure is retained; the official JNI backend passes the same protocol scenarios. JNI tests execute on the host JVM, not through Android instrumentation. Java scenarios preserve their original loops, fixed vectors, and exception checks; provider-selection assertions are adapted to the Python backend.
 

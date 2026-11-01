@@ -16,6 +16,8 @@ entropy source, so test seeds cannot alter a shared RNG or singleton backend.
 import secrets
 from dataclasses import dataclass
 from enum import IntEnum
+from hashlib import sha3_256
+from hmac import compare_digest
 from typing import Callable, Optional
 
 from signal_protocol.exceptions import InvalidKeyException
@@ -93,6 +95,18 @@ def _infer_type(serialized, key_type, length_index, label):
         if length == values[length_index]:
             return candidate
     raise InvalidKeyException(f"Unsupported raw {label} length: {length}")
+
+
+def _check_encapsulation_key(key):
+    """FIPS 203 section 7.2: packed public coefficients must be below q."""
+    # Each three-byte block encodes two little-endian 12-bit coefficients.
+    # The final 32-byte public matrix seed is unrestricted. Only public data
+    # enters this check; secret polynomial arithmetic stays in the backend.
+    for offset in range(0, len(key) - 32, 3):
+        first = key[offset] | ((key[offset + 1] & 15) << 8)
+        second = (key[offset + 1] >> 4) | (key[offset + 2] << 4)
+        if first >= 3329 or second >= 3329:
+            raise InvalidKeyException("Invalid KEM encapsulation key: noncanonical coefficient")
 
 
 def _reference_backend(key_type, random_bytes=None, seed=None, seed_length=None):
@@ -187,6 +201,7 @@ class KemPublicKey:
         internal handling of its separate 32-byte seed argument.
         """
         selected = _select_backend(backend, seed, random_bytes)
+        _check_encapsulation_key(self.key)
         try:
             if selected == "native":
                 ciphertext, secret = _native_backend(self.key_type).encrypt(self.key)
@@ -223,6 +238,14 @@ class KemSecretKey:
     def decapsulate(self, ciphertext, *, backend="native"):
         raw = _sized(ciphertext, self.key_type.ciphertext_length, "KEM ciphertext")
         selected = _select_backend(backend)
+        # Expanded dk = dk_PKE || ek || H(ek) || z. FIPS 203 section 7.3
+        # requires the hash check; PQClean's primitive does not perform it.
+        offset = self.key_type.public_key_length - 32
+        public = self.key[offset:-64]
+        if not compare_digest(sha3_256(public).digest(), self.key[-64:-32]):
+            raise InvalidKeyException("Invalid KEM decapsulation key: public key hash mismatch")
+        # Match the reference backend's re-encryption validation as well.
+        _check_encapsulation_key(public)
         try:
             if selected == "native":
                 secret = _native_backend(self.key_type).decrypt(self.key, raw)
