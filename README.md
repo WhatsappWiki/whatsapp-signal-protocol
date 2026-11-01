@@ -93,7 +93,7 @@ Store 钩子与明文回调在协议锁内执行。再次调用当前锁域的�
 
 | 验证 | 已保存结果 |
 | --- | --- |
-| Python 回归 | **1021/1021** |
+| Python 回归 | **1087/1087** |
 | 原 Java / Python 双向互通 | **20/20** |
 | WhatsApp 实际引擎受控对照 | **37/37 组** |
 | 原 Java 官方 JNI 后端 | **45/45** |
@@ -103,6 +103,8 @@ Store 钩子与明文回调在协议锁内执行。再次调用当前锁域的�
 本地回归还覆盖共享 Store 的并发会话、跳过消息密钥的有符号计数器查找、二维码指纹与设备一致性消息的 Java Protobuf 解析边界，以及密钥和随机量输入校验。
 
 异常路径检查覆盖三档 ML-KEM 非法密钥的后端一致性、失败后会话与预密钥保留及修复后重试；整数和签名边界覆盖批量 PreKey ID 的 Java 溢出语义、原始导入标量与零 nonce。
+
+多层代理回归还覆盖各层独立拒绝与异常链、未使用委托的撤销、重复消息并发接收后工作线程继续加密，以及取消后临时记录释放。
 
 事务与并发回归覆盖回调/Store 钩子重入、双线程反向取锁、带有效认证的畸形 CBC、取消异常后重试、保存后的清理失败，以及同一 PreKey 消息的并发接收。
 
@@ -256,7 +258,7 @@ The library covers algorithms, message formats, key derivation, and protocol sta
 
 | Verification | Recorded result |
 | --- | --- |
-| Python regression suite | **1021/1021** |
+| Python regression suite | **1087/1087** |
 | Original Java / Python bidirectional interoperability | **20/20** |
 | Controlled comparisons with the actual WhatsApp engine | **37/37 groups** |
 | Original Java tests with the official JNI backend | **45/45** |
@@ -266,6 +268,8 @@ Engine checks cover all three ML-KEM sets, both initiators, optional Curve one-t
 Local regressions also cover concurrent sessions sharing a Store, signed-counter lookups for skipped message keys, Java Protobuf parsing boundaries for QR fingerprints and device consistency messages, and validation of key and randomness inputs.
 
 Failure-path checks cover consistent rejection of invalid keys across both backends and all three ML-KEM sets, preservation of sessions and prekeys on failure, and retries after key repair. Integer and signature boundaries cover Java overflow in batch PreKey IDs, raw imported scalars, and zero nonces.
+
+Multilayer proxy regressions also cover independent rejection at each layer and exception chains, revocation of unused delegation, worker encryption after concurrent duplicate delivery, and release of detached records after cancellation.
 
 Transaction and concurrency regressions cover callback/Store-hook reentry, opposite lock acquisition in two threads, authenticated malformed CBC, retries after cancellation, cleanup failures after persistence, and concurrent receipt of the same PreKey message.
 
