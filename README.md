@@ -81,6 +81,8 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 Store 钩子与明文回调在协议锁内执行。再次调用当前锁域的建链、加密或解密入口会抛出 `signal_protocol.exceptions.ReentrantOperationException`，即使目标是另一个 Store 或会话；应在外层调用返回后发送回复。允许在单聊回调中处理群聊，例如保存 Sender Key 分发，取锁顺序固定为单聊 → 群聊；从群聊反向获取尚未持有的单聊锁会被拒绝。读取已持有单聊锁下的会话版本与注册 ID 仍可用。回调不得同步等待另一线程执行需要当前锁的操作，也不应直接改写正在处理的 Store 记录。
 
+预密钥解密保留对 `cipher.builder.process_message` 的公开方法调用，应用可包装或重写该方法进行额外校验。调用 `super().process_message` 可继续当前记录的处理；这次内部委托不会授权 Store 钩子或其他线程重入。回调与 Store 抛出的异常原样传播，包括冻结的 dataclass 异常。
+
 没有应用层数据库事务时，预密钥清理失败可能发生在明文回调和会话保存之后；此时库不会回退已经提交的棘轮，重试同一密文会按已接收消息处理。需要身份、明文、会话、Sender Key 和预密钥共同提交或回滚时，应由应用把相关 Store 调用纳入同一事务。
 
 密钥材料、显式种子和签名随机量使用 `bytes`、`bytearray` 或 `memoryview` 等字节缓冲区；整数和列表会被拒绝，避免将字节长度误作全零密钥或随机量。可变缓冲区在导入时复制。Java `int` ID 和计数器按相同的 32 位模式进行保存与查找。
@@ -91,7 +93,7 @@ Store 钩子与明文回调在协议锁内执行。再次调用当前锁域的�
 
 | 验证 | 已保存结果 |
 | --- | --- |
-| Python 回归 | **943/943** |
+| Python 回归 | **973/973** |
 | 原 Java / Python 双向互通 | **20/20** |
 | WhatsApp 实际引擎受控对照 | **37/37 组** |
 | 原 Java 官方 JNI 后端 | **45/45** |
@@ -242,6 +244,8 @@ Messages and records expose `serialize()` / `from_bytes()` with `snake_case` API
 
 Store hooks and plaintext callbacks run under protocol locks. Reentering setup, encryption, or decryption in an active lock domain raises `signal_protocol.exceptions.ReentrantOperationException`, even for another Store or session; send replies after the outer call returns. Session callbacks may perform group operations, such as installing Sender Key distributions, under the fixed session → group lock order. Acquiring an unowned session lock from a group operation is rejected. Session version and registration-ID reads remain available when this thread already owns the session lock. Callbacks must not synchronously wait for another thread to perform work requiring the current lock, or directly overwrite in-flight Store records.
 
+PreKey decryption preserves the public call to `cipher.builder.process_message`, which applications may wrap or override for additional validation. Calling `super().process_message` continues processing the current record; this internal delegation does not authorize reentry from Store hooks or other threads. Exceptions from callbacks and Stores propagate unchanged, including frozen dataclass exceptions.
+
 Without an application database transaction, prekey cleanup can fail after the plaintext callback and session save. The library does not rewind an already committed ratchet, and retrying the same ciphertext treats it as already received. Applications needing atomic identity, plaintext, session, Sender Key, and prekey updates should enclose the corresponding Store calls in one transaction.
 
 Key material, explicit seeds, and signature randomness use byte buffers such as `bytes`, `bytearray`, or `memoryview`. Integers and lists are rejected to prevent treating a byte count as an all-zero key or randomness. Mutable buffers are copied on import. Java `int` IDs and counters use the same 32-bit representation for storage and lookup.
@@ -252,7 +256,7 @@ The library covers algorithms, message formats, key derivation, and protocol sta
 
 | Verification | Recorded result |
 | --- | --- |
-| Python regression suite | **943/943** |
+| Python regression suite | **973/973** |
 | Original Java / Python bidirectional interoperability | **20/20** |
 | Controlled comparisons with the actual WhatsApp engine | **37/37 groups** |
 | Original Java tests with the official JNI backend | **45/45** |

@@ -1,5 +1,7 @@
 """Prekey validation and outgoing/incoming session establishment."""
 
+from threading import local
+
 from signal_protocol._locks import SESSION_LOCK, protocol_operation
 from signal_protocol.address import Direction
 from signal_protocol.ecc import Curve
@@ -16,6 +18,8 @@ from signal_protocol.ratchet import (
 )
 
 __all__ = ["SessionBuilder"]
+
+_incoming = local()
 
 
 class SessionBuilder:
@@ -129,12 +133,28 @@ class SessionBuilder:
         state.alice_base_key = base.public_key.serialize()
 
     def process_message(self, record, message):
-        """Prepare an incoming prekey record outside an active cipher operation."""
+        """Prepare an incoming prekey record, including application overrides."""
+        continuation = getattr(_incoming, "continuation", None)
+        if continuation is not None and all(
+            actual is expected for actual, expected in zip(continuation, (self, record, message))
+        ):
+            # Only the cipher's exact delegated call may join its operation.
+            # Consume this before Store hooks can attempt another setup.
+            _incoming.continuation = None
+            return self._prepare_message(record, message)
         with protocol_operation(SESSION_LOCK):
-            return self._process_message(record, message)
+            return self._prepare_message(record, message)
 
     def _process_message(self, record, message):
-        """Continue incoming setup under the caller's protocol operation guard."""
+        """Dispatch public policies once under the cipher's existing guard."""
+        previous = getattr(_incoming, "continuation", None)
+        _incoming.continuation = (self, record, message)
+        try:
+            return self.process_message(record, message)
+        finally:
+            _incoming.continuation = previous
+
+    def _prepare_message(self, record, message):
         record.profile = self.profile
         if not self.profile.whatsapp and message.kyber_pre_key_id is not None:
             raise InvalidVersionException("KEM messages require the WhatsApp profile")
