@@ -1,6 +1,7 @@
 """Separate cipher instances sharing a store serialize each ratchet update."""
 
 from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 import pytest
 
@@ -8,9 +9,11 @@ from signal_protocol import (
     UPSTREAM,
     WHATSAPP,
     InMemorySignalProtocolStore,
+    SessionBuilder,
     SessionCipher,
     SignalMessage,
 )
+from signal_protocol.exceptions import DuplicateMessageException
 from signal_protocol.groups import (
     GroupCipher,
     GroupSessionBuilder,
@@ -18,7 +21,8 @@ from signal_protocol.groups import (
     SenderKeyName,
 )
 from signal_protocol.protocol import SenderKeyMessage
-from tests.helpers import ALICE, BOB, initialize_sessions
+from tests.helpers import ALICE, BOB, bundle, initialize_sessions
+from tests.test_whatsapp_sessions import peers as hybrid_peers
 
 
 @pytest.mark.parametrize("profile", [UPSTREAM, WHATSAPP])
@@ -75,3 +79,35 @@ def test_concurrent_group_ciphers_do_not_reuse_counters_or_lose_updates(profile)
     state = bob.load_sender_key(name).get_sender_key_state()
     assert state.sender_chain_key.iteration == 32
     assert not any(state.has_sender_message_key(index) for index in range(32))
+
+
+@pytest.mark.parametrize("profile,hybrid", [(UPSTREAM, False), (WHATSAPP, False), (WHATSAPP, True)])
+def test_concurrent_prekey_delivery_commits_and_consumes_once(profile, hybrid):
+    if hybrid:
+        p = hybrid_peers()
+        sender, store, address, prekey_id = p.ac, p.b, p.bc.remote_address, 37
+    else:
+        alice, store = InMemorySignalProtocolStore(), InMemorySignalProtocolStore()
+        prekey = bundle(store)
+        SessionBuilder(alice, BOB, profile=profile).process(prekey)
+        sender = SessionCipher(alice, BOB, profile=profile)
+        address, prekey_id = ALICE, prekey.pre_key_id
+    message = sender.encrypt(b"one initial delivery")
+    barrier = Barrier(8, timeout=5)
+    delivered = []
+
+    def decrypt(_):
+        receiver = SessionCipher(store, address, profile=profile)
+        barrier.wait()
+        try:
+            return receiver.decrypt(message, delivered.append)
+        except DuplicateMessageException:
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(decrypt, range(8)))
+    assert results.count(b"one initial delivery") == 1 and results.count(None) == 7
+    assert delivered == [b"one initial delivery"]
+    assert not store.contains_pre_key(prekey_id)
+    if hybrid:
+        assert not store.contains_kyber_pre_key(71)

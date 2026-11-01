@@ -14,6 +14,7 @@ __all__ = [
     "FingerprintParsingException",
     "FingerprintVersionMismatchException",
     "FingerprintIdentifierMismatchException",
+    "ReentrantOperationException",
 ]
 
 
@@ -43,6 +44,10 @@ class DuplicateMessageException(Exception):
 
 class NoSessionException(Exception):
     pass
+
+
+class ReentrantOperationException(RuntimeError):
+    """A nested protocol operation would overwrite state or invert lock order."""
 
 
 class UntrustedIdentityException(Exception):

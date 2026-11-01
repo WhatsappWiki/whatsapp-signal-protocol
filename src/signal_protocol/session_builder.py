@@ -1,6 +1,6 @@
 """Prekey validation and outgoing/incoming session establishment."""
 
-from signal_protocol._locks import SESSION_LOCK
+from signal_protocol._locks import SESSION_LOCK, protocol_operation
 from signal_protocol.address import Direction
 from signal_protocol.ecc import Curve
 from signal_protocol.exceptions import (
@@ -59,7 +59,7 @@ class SessionBuilder:
             raise UntrustedIdentityException(self.remote_address.name, identity)
 
     def process(self, pre_key):
-        with SESSION_LOCK:
+        with protocol_operation(SESSION_LOCK):
             self._trust(pre_key.identity_key, Direction.SENDING)
             encapsulated = self._validate_and_encapsulate(pre_key)
             record = self.session_store.load_session(self.remote_address)
@@ -129,6 +129,12 @@ class SessionBuilder:
         state.alice_base_key = base.public_key.serialize()
 
     def process_message(self, record, message):
+        """Prepare an incoming prekey record outside an active cipher operation."""
+        with protocol_operation(SESSION_LOCK):
+            return self._process_message(record, message)
+
+    def _process_message(self, record, message):
+        """Continue incoming setup under the caller's protocol operation guard."""
         record.profile = self.profile
         if not self.profile.whatsapp and message.kyber_pre_key_id is not None:
             raise InvalidVersionException("KEM messages require the WhatsApp profile")

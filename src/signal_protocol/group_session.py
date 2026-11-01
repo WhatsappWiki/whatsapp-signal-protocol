@@ -1,6 +1,6 @@
 """Sender Key distribution and authenticated group encryption over a supplied store."""
 
-from signal_protocol._locks import GROUP_LOCK
+from signal_protocol._locks import GROUP_LOCK, protocol_operation
 from signal_protocol.exceptions import (
     DuplicateMessageException,
     InvalidKeyException,
@@ -26,7 +26,7 @@ class GroupSessionBuilder:
         self.profile = ProtocolProfile(profile)
 
     def process(self, name, message):
-        with GROUP_LOCK:
+        with protocol_operation(GROUP_LOCK):
             record = self.store.load_sender_key(name)
             record.profile = self.profile
             record.add_sender_key_state(
@@ -35,7 +35,7 @@ class GroupSessionBuilder:
             self.store.store_sender_key(name, record)
 
     def create(self, name):
-        with GROUP_LOCK:
+        with protocol_operation(GROUP_LOCK):
             record = self.store.load_sender_key(name)
             record.profile = self.profile
             if record.is_empty():
@@ -64,7 +64,7 @@ class GroupCipher:
         self.profile = ProtocolProfile(profile)
 
     def encrypt(self, plaintext):
-        with GROUP_LOCK:
+        with protocol_operation(GROUP_LOCK):
             record = self.store.load_sender_key(self.name)
             record.profile = self.profile
             try:
@@ -81,7 +81,7 @@ class GroupCipher:
             return message.serialize()
 
     def decrypt(self, serialized, callback=None):
-        with GROUP_LOCK:
+        with protocol_operation(GROUP_LOCK):
             record = self.store.load_sender_key(self.name)
             record.profile = self.profile
             if record.is_empty():

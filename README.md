@@ -79,6 +79,10 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 消息和记录使用 `serialize()` / `from_bytes()`，接口采用 `snake_case`。解密回调在 session 保存前执行；认证失败不提交棘轮状态，一次性预密钥在成功接收并保存 session 后消费。外部 Store 的多个操作不自动组成数据库事务。
 
+Store 钩子与明文回调在协议锁内执行。再次调用当前锁域的建链、加密或解密入口会抛出 `signal_protocol.exceptions.ReentrantOperationException`，即使目标是另一个 Store 或会话；应在外层调用返回后发送回复。允许在单聊回调中处理群聊，例如保存 Sender Key 分发，取锁顺序固定为单聊 → 群聊；从群聊反向获取尚未持有的单聊锁会被拒绝。读取已持有单聊锁下的会话版本与注册 ID 仍可用。回调不得同步等待另一线程执行需要当前锁的操作，也不应直接改写正在处理的 Store 记录。
+
+没有应用层数据库事务时，预密钥清理失败可能发生在明文回调和会话保存之后；此时库不会回退已经提交的棘轮，重试同一密文会按已接收消息处理。需要身份、明文、会话、Sender Key 和预密钥共同提交或回滚时，应由应用把相关 Store 调用纳入同一事务。
+
 密钥材料、显式种子和签名随机量使用 `bytes`、`bytearray` 或 `memoryview` 等字节缓冲区；整数和列表会被拒绝，避免将字节长度误作全零密钥或随机量。可变缓冲区在导入时复制。Java `int` ID 和计数器按相同的 32 位模式进行保存与查找。
 
 库的范围是算法、消息格式、密钥派生与协议状态。账号注册、连接传输、JID/设备管理和消息业务由上层应用组织。本项目为独立、非官方实现，与 WhatsApp 或 Meta 无官方隶属或背书关系。
@@ -87,7 +91,7 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 
 | 验证 | 已保存结果 |
 | --- | --- |
-| Python 回归 | **874/874** |
+| Python 回归 | **943/943** |
 | 原 Java / Python 双向互通 | **20/20** |
 | WhatsApp 实际引擎受控对照 | **37/37 组** |
 | 原 Java 官方 JNI 后端 | **45/45** |
@@ -97,6 +101,8 @@ kem_record = KeyHelper.generate_kyber_pre_key(
 本地回归还覆盖共享 Store 的并发会话、跳过消息密钥的有符号计数器查找、二维码指纹与设备一致性消息的 Java Protobuf 解析边界，以及密钥和随机量输入校验。
 
 异常路径检查覆盖三档 ML-KEM 非法密钥的后端一致性、失败后会话与预密钥保留及修复后重试；整数和签名边界覆盖批量 PreKey ID 的 Java 溢出语义、原始导入标量与零 nonce。
+
+事务与并发回归覆盖回调/Store 钩子重入、双线程反向取锁、带有效认证的畸形 CBC、取消异常后重试、保存后的清理失败，以及同一 PreKey 消息的并发接收。
 
 原桌面 Java 依赖 `curve25519-java:0.5.0` 的 VRF 方法未实现，原样基线为 **44/45**；该失败保留，官方 JNI 后端运行相同协议场景通过。JNI 测试在本机 JVM 执行，不是 Android instrumentation。Java 源测试按原循环、固定向量和异常断言移植；仅 provider 选择断言按 Python 后端适配。
 
@@ -143,7 +149,7 @@ whatsapp-signal-protocol/
 
 `SessionCipher` 组合 `SessionBuilder` 与注入的 Store。构造器仍可分别接收 `pre_key_store`、`signed_pre_key_store`、`identity_key_store`、`kyber_pre_key_store`；未提供时使用首个 `store`。现有适配器和组合内存 Store 的继承关系保留，以兼容调用方子类。两个协议流程各自复用唯一共享锁；解密、去 padding 和应用回调均在持久化之前完成。
 
-测试统一放在 `tests/`，新模块的导入兼容、独立 Store 注入和回调失败重试见 [test_module_api.py](tests/test_module_api.py)。新增存储后端应实现相应契约，并保持加载对象独立与失败时不提交会话或 Sender Key 状态的语义。
+测试统一放在 `tests/`，新模块的导入兼容、独立 Store 注入和回调失败重试见 [test_module_api.py](tests/test_module_api.py)。新增存储后端应实现相应契约，保持加载对象独立，并在认证或回调失败时避免提交会话或 Sender Key 状态；保存后的清理失败遵循上文的事务边界。
 
 ### 密钥与实现边界
 
@@ -234,6 +240,10 @@ The [Store contracts](src/signal_protocol/store_contracts.py) connect protocol l
 
 Messages and records expose `serialize()` / `from_bytes()` with `snake_case` APIs. Decryption callbacks run before the session is saved. Authentication failures do not commit ratchet state; one-time prekeys are consumed after successful reception and session storage. Multiple external Store operations do not automatically form a database transaction.
 
+Store hooks and plaintext callbacks run under protocol locks. Reentering setup, encryption, or decryption in an active lock domain raises `signal_protocol.exceptions.ReentrantOperationException`, even for another Store or session; send replies after the outer call returns. Session callbacks may perform group operations, such as installing Sender Key distributions, under the fixed session → group lock order. Acquiring an unowned session lock from a group operation is rejected. Session version and registration-ID reads remain available when this thread already owns the session lock. Callbacks must not synchronously wait for another thread to perform work requiring the current lock, or directly overwrite in-flight Store records.
+
+Without an application database transaction, prekey cleanup can fail after the plaintext callback and session save. The library does not rewind an already committed ratchet, and retrying the same ciphertext treats it as already received. Applications needing atomic identity, plaintext, session, Sender Key, and prekey updates should enclose the corresponding Store calls in one transaction.
+
 Key material, explicit seeds, and signature randomness use byte buffers such as `bytes`, `bytearray`, or `memoryview`. Integers and lists are rejected to prevent treating a byte count as an all-zero key or randomness. Mutable buffers are copied on import. Java `int` IDs and counters use the same 32-bit representation for storage and lookup.
 
 The library covers algorithms, message formats, key derivation, and protocol state. Registration, transport, JID/device management, and message business logic belong to the application layer. This independent, unofficial implementation is not affiliated with or endorsed by WhatsApp or Meta.
@@ -242,7 +252,7 @@ The library covers algorithms, message formats, key derivation, and protocol sta
 
 | Verification | Recorded result |
 | --- | --- |
-| Python regression suite | **874/874** |
+| Python regression suite | **943/943** |
 | Original Java / Python bidirectional interoperability | **20/20** |
 | Controlled comparisons with the actual WhatsApp engine | **37/37 groups** |
 | Original Java tests with the official JNI backend | **45/45** |
@@ -252,6 +262,8 @@ Engine checks cover all three ML-KEM sets, both initiators, optional Curve one-t
 Local regressions also cover concurrent sessions sharing a Store, signed-counter lookups for skipped message keys, Java Protobuf parsing boundaries for QR fingerprints and device consistency messages, and validation of key and randomness inputs.
 
 Failure-path checks cover consistent rejection of invalid keys across both backends and all three ML-KEM sets, preservation of sessions and prekeys on failure, and retries after key repair. Integer and signature boundaries cover Java overflow in batch PreKey IDs, raw imported scalars, and zero nonces.
+
+Transaction and concurrency regressions cover callback/Store-hook reentry, opposite lock acquisition in two threads, authenticated malformed CBC, retries after cancellation, cleanup failures after persistence, and concurrent receipt of the same PreKey message.
 
 The original desktop dependency, `curve25519-java:0.5.0`, leaves its VRF methods unimplemented, giving an unchanged **44/45** baseline. That failure is retained; the official JNI backend passes the same protocol scenarios. JNI tests execute on the host JVM, not through Android instrumentation. Java scenarios preserve their original loops, fixed vectors, and exception checks; provider-selection assertions are adapted to the Python backend.
 
@@ -298,7 +310,7 @@ Dependencies point from adapters and session workflows toward state and cryptogr
 
 `SessionCipher` composes a `SessionBuilder` with injected stores. Constructors still accept separate `pre_key_store`, `signed_pre_key_store`, `identity_key_store` and `kyber_pre_key_store` arguments, defaulting to the initial `store` when omitted. Existing adapter and aggregate memory-store inheritance is retained for compatibility with caller subclasses. Direct and group workflows each reuse a single shared lock; decryption, unpadding and application callbacks all complete before persistence.
 
-Tests live consistently under `tests/`. See [test_module_api.py](tests/test_module_api.py) for import compatibility, separate store injection and retries after callback failures. New storage backends should implement the relevant contracts while preserving independent loaded objects and avoiding session or Sender Key state commits on failure.
+Tests live consistently under `tests/`. See [test_module_api.py](tests/test_module_api.py) for import compatibility, separate store injection and retries after callback failures. New storage backends should implement the relevant contracts, preserve independent loaded objects, and avoid committing session or Sender Key state on authentication or callback failure. Cleanup failures after persistence follow the transaction boundaries described above.
 
 ### Keys and implementation boundaries
 

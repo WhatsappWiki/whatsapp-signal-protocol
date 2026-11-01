@@ -1,6 +1,6 @@
 """Double-ratchet encryption, authenticated decryption and store commit ordering."""
 
-from signal_protocol._locks import SESSION_LOCK
+from signal_protocol._locks import SESSION_LOCK, protocol_operation
 from signal_protocol.address import Direction
 from signal_protocol.ecc import Curve
 from signal_protocol.exceptions import (
@@ -56,7 +56,7 @@ class SessionCipher:
         self.profile = self.builder.profile
 
     def encrypt(self, padded_message):
-        with SESSION_LOCK:
+        with protocol_operation(SESSION_LOCK):
             record = self.session_store.load_session(self.remote_address)
             record.profile = self.profile
             state = record.session_state
@@ -115,7 +115,7 @@ class SessionCipher:
     def decrypt(self, message, callback=None):
         if not isinstance(message, (SignalMessage, PreKeySignalMessage)):
             raise TypeError("Parse the envelope as SignalMessage or PreKeySignalMessage first")
-        with SESSION_LOCK:
+        with protocol_operation(SESSION_LOCK):
             self._check_version(message.message_version)
             is_prekey = isinstance(message, PreKeySignalMessage)
             if not is_prekey and not self.session_store.contains_session(self.remote_address):
@@ -125,7 +125,7 @@ class SessionCipher:
             unsigned_id = None
             kyber_id = message.kyber_pre_key_id if is_prekey else None
             if is_prekey:
-                unsigned_id = self.builder.process_message(record, message)
+                unsigned_id = self.builder._process_message(record, message)
                 message = message.message
             plaintext = self._decrypt_record(
                 record, message, allow_previous=not (is_prekey and self.profile.whatsapp)
@@ -227,13 +227,13 @@ class SessionCipher:
         return chain.message_keys()
 
     def get_remote_registration_id(self):
-        with SESSION_LOCK:
+        with protocol_operation(SESSION_LOCK, read_only=True):
             return self.session_store.load_session(
                 self.remote_address
             ).session_state.remote_registration_id
 
     def get_session_version(self):
-        with SESSION_LOCK:
+        with protocol_operation(SESSION_LOCK, read_only=True):
             if not self.session_store.contains_session(self.remote_address):
                 raise NoSessionException(str(self.remote_address))
             return self.session_store.load_session(
