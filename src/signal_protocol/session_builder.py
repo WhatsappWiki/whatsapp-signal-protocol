@@ -145,12 +145,12 @@ class SessionBuilder:
         with protocol_operation(SESSION_LOCK):
             return self._prepare_message(record, message)
 
-    def _process_message(self, record, message):
+    def _process_message(self, record, message, *, process_message):
         """Dispatch public policies once under the cipher's existing guard."""
         previous = getattr(_incoming, "continuation", None)
         _incoming.continuation = (self, record, message)
         try:
-            return self.process_message(record, message)
+            return process_message(record, message)
         finally:
             _incoming.continuation = previous
 

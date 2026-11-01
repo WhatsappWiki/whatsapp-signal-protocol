@@ -125,7 +125,9 @@ class SessionCipher:
             unsigned_id = None
             kyber_id = message.kyber_pre_key_id if is_prekey else None
             if is_prekey:
-                unsigned_id = self.builder._process_message(record, message)
+                unsigned_id = self.builder._process_message(
+                    record, message, process_message=self.builder.process_message
+                )
                 message = message.message
             plaintext = self._decrypt_record(
                 record, message, allow_previous=not (is_prekey and self.profile.whatsapp)
